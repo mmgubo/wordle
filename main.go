@@ -125,6 +125,25 @@ func draw(guesses []string, results [][5]tileState) {
 	fmt.Println()
 }
 
+// printHint reveals a progressively more specific clue about the target.
+// Hints never directly expose the word; they give structural or positional info.
+func printHint(target string, n int) {
+	switch n {
+	case 1:
+		vowelCount := 0
+		for _, ch := range target {
+			if ch == 'a' || ch == 'e' || ch == 'i' || ch == 'o' || ch == 'u' {
+				vowelCount++
+			}
+		}
+		fmt.Printf("  Hint: The word contains %d vowel(s).\n", vowelCount)
+	case 2:
+		fmt.Printf("  Hint: The word ends with '%s'.\n", strings.ToUpper(target[4:]))
+	default:
+		fmt.Printf("  Hint: The word begins with '%s'.\n", strings.ToUpper(target[:1]))
+	}
+}
+
 func main() {
 	enableANSI()
 
@@ -138,6 +157,7 @@ func main() {
 
 	guesses := make([]string, 0, 6)
 	results := make([][5]tileState, 0, 6)
+	hintCount := 0
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
@@ -159,11 +179,17 @@ func main() {
 		// Prompt for input, re-asking on invalid entries.
 		var guess string
 		for {
-			fmt.Printf("  Guess %d/6: ", n+1)
+			fmt.Printf("  Guess %d/6 (or /hint): ", n+1)
 			if !scanner.Scan() {
 				os.Exit(0)
 			}
 			g := strings.ToLower(strings.TrimSpace(scanner.Text()))
+
+			if g == "/hint" {
+				hintCount++
+				printHint(target, hintCount)
+				continue
+			}
 
 			if len(g) != 5 {
 				fmt.Println("  Enter a 5-letter word.")
