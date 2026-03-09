@@ -63,13 +63,13 @@ func renderTile(ch byte, s tileState) string {
 	letter := string(rune(ch - 32)) // ASCII lowercase to uppercase
 	switch s {
 	case stateCorrect:
-		return colorGreen + " " + letter + " " + colorReset
+		return colorGreen + "  " + letter + "  " + colorReset
 	case statePresent:
-		return colorYellow + " " + letter + " " + colorReset
+		return colorYellow + "  " + letter + "  " + colorReset
 	case stateAbsent:
-		return colorGray + " " + letter + " " + colorReset
+		return colorGray + "  " + letter + "  " + colorReset
 	}
-	return "   "
+	return "     "
 }
 
 func draw(guesses []string, results [][5]tileState) {
@@ -85,8 +85,9 @@ func draw(guesses []string, results [][5]tileState) {
 				fmt.Print(renderTile(guesses[i][j], results[i][j]))
 			}
 		} else {
-			fmt.Print("\033[90m[ ][ ][ ][ ][ ]\033[0m")
+			fmt.Print("\033[90m[   ][   ][   ][   ][   ]\033[0m")
 		}
+		fmt.Println()
 		fmt.Println()
 	}
 
