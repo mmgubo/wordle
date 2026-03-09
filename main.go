@@ -74,7 +74,7 @@ func renderTile(ch byte, s tileState) string {
 
 func draw(guesses []string, results [][5]tileState) {
 	fmt.Print("\033[H\033[2J")
-	fmt.Println(colorBold + "   W O R D L E" + colorReset)
+	fmt.Println(colorBold + "   W O R D L E  [HARD]" + colorReset)
 	fmt.Println()
 
 	// Board: 6 rows of 5 tiles
@@ -160,6 +160,10 @@ func main() {
 	hintCount := 0
 	scanner := bufio.NewScanner(os.Stdin)
 
+	// Hard mode constraints: greens fix a position, yellows must reappear.
+	fixed := [5]byte{}
+	mustHave := map[byte]bool{}
+
 	for {
 		draw(guesses, results)
 
@@ -211,6 +215,30 @@ func main() {
 				continue
 			}
 
+			// Hard mode: enforce previously revealed clues.
+			badPos := -1
+			for i := 0; i < 5; i++ {
+				if fixed[i] != 0 && g[i] != fixed[i] {
+					badPos = i
+					break
+				}
+			}
+			if badPos >= 0 {
+				fmt.Printf("  Position %d must be %s.\n", badPos+1, strings.ToUpper(string(fixed[badPos])))
+				continue
+			}
+			missingLetter := byte(0)
+			for ch := range mustHave {
+				if !strings.ContainsRune(g, rune(ch)) {
+					missingLetter = ch
+					break
+				}
+			}
+			if missingLetter != 0 {
+				fmt.Printf("  Guess must contain %s.\n", strings.ToUpper(string(missingLetter)))
+				continue
+			}
+
 			guess = g
 			break
 		}
@@ -218,6 +246,16 @@ func main() {
 		res := evaluate(guess, target)
 		guesses = append(guesses, guess)
 		results = append(results, res)
+
+		// Update hard mode constraints from this result.
+		for i := 0; i < 5; i++ {
+			switch res[i] {
+			case stateCorrect:
+				fixed[i] = guess[i]
+			case statePresent:
+				mustHave[guess[i]] = true
+			}
+		}
 	}
 }
 
