@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -126,6 +128,73 @@ func draw(guesses []string, results [][5]tileState) {
 	fmt.Println()
 }
 
+type scores struct {
+	Played       int    `json:"played"`
+	Wins         int    `json:"wins"`
+	Streak       int    `json:"streak"`
+	MaxStreak    int    `json:"max_streak"`
+	Distribution [7]int `json:"distribution"` // index 1–6 = guesses used
+}
+
+func scoresPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".wordle_scores.json"
+	}
+	return filepath.Join(home, ".wordle_scores.json")
+}
+
+func loadScores() scores {
+	data, err := os.ReadFile(scoresPath())
+	if err != nil {
+		return scores{}
+	}
+	var s scores
+	json.Unmarshal(data, &s)
+	return s
+}
+
+func saveScores(s scores) {
+	data, err := json.Marshal(s)
+	if err != nil {
+		return
+	}
+	os.WriteFile(scoresPath(), data, 0644)
+}
+
+func printStats(s scores, guessesUsed int, won bool) {
+	winPct := 0
+	if s.Played > 0 {
+		winPct = s.Wins * 100 / s.Played
+	}
+	fmt.Println()
+	fmt.Println("  " + colorBold + "STATISTICS" + colorReset)
+	fmt.Printf("  Played: %d   Win%%: %d   Streak: %d   Best: %d\n",
+		s.Played, winPct, s.Streak, s.MaxStreak)
+	fmt.Println()
+	fmt.Println("  " + colorBold + "GUESS DISTRIBUTION" + colorReset)
+
+	max := 1
+	for i := 1; i <= 6; i++ {
+		if s.Distribution[i] > max {
+			max = s.Distribution[i]
+		}
+	}
+	for i := 1; i <= 6; i++ {
+		bar := s.Distribution[i] * 12 / max
+		if bar < 1 && s.Distribution[i] > 0 {
+			bar = 1
+		}
+		highlight := won && i == guessesUsed
+		color := colorGray
+		if highlight {
+			color = colorGreen
+		}
+		fmt.Printf("  %d %s%-12s%s %d\n", i, color, strings.Repeat(" ", bar), colorReset, s.Distribution[i])
+	}
+	fmt.Println()
+}
+
 // printHint reveals a progressively more specific clue about the target.
 // Hints never directly expose the word; they give structural or positional info.
 func printHint(target string, n int) {
@@ -147,6 +216,8 @@ func printHint(target string, n int) {
 
 func main() {
 	enableANSI()
+
+	sc := loadScores()
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	target := answers[r.Intn(len(answers))]
@@ -174,10 +245,23 @@ func main() {
 		if n > 0 && guesses[n-1] == target {
 			messages := [7]string{"", "Genius!", "Magnificent!", "Impressive!", "Splendid!", "Great!", "Phew!"}
 			fmt.Println("  " + colorBold + messages[n] + colorReset)
+			sc.Played++
+			sc.Wins++
+			sc.Streak++
+			if sc.Streak > sc.MaxStreak {
+				sc.MaxStreak = sc.Streak
+			}
+			sc.Distribution[n]++
+			saveScores(sc)
+			printStats(sc, n, true)
 			break
 		}
 		if n == 6 {
 			fmt.Printf("  The word was: %s%s%s\n", colorBold, strings.ToUpper(target), colorReset)
+			sc.Played++
+			sc.Streak = 0
+			saveScores(sc)
+			printStats(sc, 0, false)
 			break
 		}
 
